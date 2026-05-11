@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+.env
+.venv/
+venv/
+outputs/
+*.pth
+*.pt
+*.ckpt
+.DS_Store
+.ipynb_checkpoints/
+data/raw/images/*
+data/coco/images/*
+data/coco/annotations/*.json
+!data/coco/annotations/.gitkeep

@@ -1,0 +1,7 @@
+{
+  "categories": [
+    {"id": 1, "name": "aislador", "supercategory": "red_electrica"},
+    {"id": 2, "name": "cortacircuitos", "supercategory": "red_electrica"},
+    {"id": 3, "name": "transformador", "supercategory": "red_electrica"}
+  ]
+}

@@ -1,0 +1,37 @@
+project_name: sam-electric-finetuning
+seed: 42
+
+model:
+  # Usa vit-base para probar rápido. Para mejor precisión puedes usar facebook/sam-vit-large o facebook/sam-vit-huge.
+  pretrained_name: facebook/sam-vit-base
+  freeze_vision_encoder: true
+  freeze_prompt_encoder: true
+
+classes:
+  # Deben coincidir exactamente con los nombres del archivo COCO.
+  - aislador
+  - cortacircuitos
+  - transformador
+
+data:
+  dataset_root: data/coco
+  image_dir: data/coco/images
+  train_annotations: data/coco/annotations/instances_train.json
+  val_annotations: data/coco/annotations/instances_val.json
+  test_annotations: data/coco/annotations/instances_test.json
+
+training:
+  output_dir: outputs/checkpoints/sam-electric
+  epochs: 10
+  batch_size: 2
+  learning_rate: 0.00005
+  weight_decay: 0.01
+  num_workers: 2
+  gradient_accumulation_steps: 1
+  mixed_precision: true
+  save_every_epochs: 1
+  threshold: 0.5
+
+inference:
+  threshold: 0.5
+  output_dir: outputs/inference

@@ -1,0 +1,12 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sam-electric-finetuning"
+version = "0.1.0"
+description = "Fine-tuning de Segment Anything Model para segmentación de elementos eléctricos en imágenes de drones."
+requires-python = ">=3.10"
+
+[tool.setuptools.packages.find]
+where = ["src"]
