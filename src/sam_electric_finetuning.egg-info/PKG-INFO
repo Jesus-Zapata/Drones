@@ -1,0 +1,5 @@
+Metadata-Version: 2.4
+Name: sam-electric-finetuning
+Version: 0.1.0
+Summary: Fine-tuning de Segment Anything Model para segmentación de elementos eléctricos en imágenes de drones.
+Requires-Python: >=3.10

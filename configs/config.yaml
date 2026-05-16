@@ -9,9 +9,9 @@ model:
 
 classes:
   # Deben coincidir exactamente con los nombres del archivo COCO.
-  - aislador
-  - cortacircuitos
-  - transformador
+  - Transformador
+  - Aislador
+  - Cortacircuitos
 
 data:
   dataset_root: data/coco

@@ -9,13 +9,51 @@ import numpy as np
 from PIL import Image
 
 
-def overlay_mask(image: np.ndarray, mask: np.ndarray, alpha: float = 0.45) -> np.ndarray:
-    """Superpone una máscara binaria sobre una imagen RGB sin fijar una paleta específica."""
-    if image.dtype != np.uint8:
-        image = image.astype(np.uint8)
+
+def resize_mask_to_image(mask, image):
+    """
+    Ajusta una máscara al tamaño de la imagen original.
+    La máscara puede venir en 256x256 porque SAM trabaja internamente
+    con máscaras de baja resolución.
+    """
+    if mask.ndim > 2:
+        mask = np.squeeze(mask)
+
+    image_h, image_w = image.shape[:2]
+
+    if mask.shape[:2] != (image_h, image_w):
+        mask_uint8 = (mask > 0).astype(np.uint8) * 255
+        mask_pil = Image.fromarray(mask_uint8)
+        mask_pil = mask_pil.resize((image_w, image_h), resample=Image.Resampling.NEAREST)
+        mask = np.array(mask_pil) > 0
+    else:
+        mask = mask.astype(bool)
+
+    return mask
+
+
+def overlay_mask(image, mask, color=(255, 0, 0), alpha=0.45):
+    """
+    Pinta una máscara sobre una imagen.
+    Si la máscara no tiene el mismo tamaño que la imagen, la redimensiona.
+    """
+    image = np.array(image).copy()
+
+    if image.ndim == 2:
+        image = np.stack([image, image, image], axis=-1)
+
+    if image.shape[-1] == 4:
+        image = image[:, :, :3]
+
+    mask = resize_mask_to_image(mask, image)
+
     overlay = image.copy()
-    color = np.array([255, 0, 0], dtype=np.uint8)
-    overlay[mask.astype(bool)] = (overlay[mask.astype(bool)] * (1 - alpha) + color * alpha).astype(np.uint8)
+    color = np.array(color, dtype=np.uint8)
+
+    overlay[mask] = (
+        overlay[mask] * (1 - alpha) + color * alpha
+    ).astype(np.uint8)
+
     return overlay
 
 

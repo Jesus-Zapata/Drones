@@ -94,7 +94,13 @@ class COCOSAMDataset(Dataset):
         record = self.records[idx]
         image = Image.open(record.image_path).convert("RGB")
         ann = self.coco.loadAnns([record.annotation_id])[0]
-        mask = self.coco.annToMask(ann).astype(np.float32)
+        mask = self.coco.annToMask(ann).astype(np.uint8)
+        # SAM produce predicciones de máscara en baja resolución, normalmente 256x256.
+        # Convertimos todas las máscaras reales al mismo tamaño para que el DataLoader
+        # pueda formar batches con torch.stack().
+        mask = Image.fromarray(mask * 255)
+        mask = mask.resize((256, 256), resample=Image.Resampling.NEAREST)
+        mask = (np.array(mask) > 0).astype(np.float32)
 
         # Hugging Face SAM espera cajas en formato XYXY, agrupadas por imagen y por prompt.
         inputs = self.processor(
