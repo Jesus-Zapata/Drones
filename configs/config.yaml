@@ -1,14 +1,39 @@
 project_name: sam-electric-finetuning
 seed: 42
 
+# Perfil optimizado para una GPU NVIDIA T4 y CPU con ~14 GB de RAM.
+# La idea es usar GPU al máximo sin ahogar la RAM con demasiados workers.
+runtime:
+  profile: t4_14gb_ram
+  cpu_threads: auto          # usa todos los hilos lógicos disponibles para Torch/OpenMP
+  interop_threads: 1
+  num_workers: auto          # calcula workers según CPU/RAM; para 14 GB normalmente queda entre 3 y 4
+  max_workers: 4             # subir a 6 solo si la RAM no se llena
+  pin_memory: true           # acelera transferencia CPU -> GPU
+  persistent_workers: true   # evita recrear workers en cada época
+  prefetch_factor: 2         # cada worker precarga batches
+  cudnn_benchmark: true
+  allow_tf32: true
+  float32_matmul_precision: high
+  autocast_dtype: float16    # T4 trabaja bien con fp16
+  channels_last: true
+  fused_optimizer: true
+  empty_cache_each_epoch: true
+  mixed_precision: true
+
+# Modelo por defecto. Para modelos más pesados cambia pretrained_name y ajusta image_size/batch_size.
 model:
-  # Usa vit-base para probar rápido. Para mejor precisión puedes usar facebook/sam-vit-large o facebook/sam-vit-huge.
   pretrained_name: facebook/sam-vit-base
   freeze_vision_encoder: true
   freeze_prompt_encoder: true
+  processor:
+    # SAM normalmente trabaja con 1024 como lado mayor. Bajar este valor reduce memoria,
+    # pero puede afectar objetos pequeños. Subirlo depende de la capacidad de GPU.
+    image_size: 1024
+    # Resolución interna de máscaras usada para pérdida y evaluación intermedia.
+    mask_size: 256
 
 classes:
-  # Deben coincidir exactamente con los nombres del archivo COCO.
   - Transformador
   - Aislador
   - Cortacircuitos
@@ -23,15 +48,100 @@ data:
 training:
   output_dir: outputs/checkpoints/sam-electric
   epochs: 10
-  batch_size: 2
+  # Recomendado para T4 con ViT-B y encoder congelado. Si hay OOM, usa batch_size 1 y gradient_accumulation_steps 2 o 4.
+  batch_size: 12
   learning_rate: 0.00005
   weight_decay: 0.01
-  num_workers: 2
-  gradient_accumulation_steps: 1
+  gradient_accumulation_steps: 2   # batch efectivo = 4 sin duplicar memoria GPU
   mixed_precision: true
   save_every_epochs: 1
   threshold: 0.5
+  prompt_type: box      # box | point
+  image_size: 1024      # puede sobrescribir model.processor.image_size
+  mask_size: 256        # puede sobrescribir model.processor.mask_size
 
-inference:
+evaluation:
+  output_dir: outputs/evaluation
+  annotations: data/coco/annotations/instances_test.json
+  batch_size: 2
   threshold: 0.5
-  output_dir: outputs/inference
+  prompt_type: box
+  image_size: 1024
+  mask_size: 256
+  save_visualizations: true
+  max_visualizations: 25
+  metrics:
+    - iou
+    - dice
+    - miou
+    - mpa
+    - pixel_accuracy
+    - precision
+    - recall
+    - f1
+    - inference_time
+    - gpu_memory
+
+# Tabla experimental que soporta la metodología del documento escrito.
+experiments:
+  - id: E1
+    description: SAM ViT-B base sin fine-tuning con prompt de caja
+    model_name: facebook/sam-vit-base
+    checkpoint: null
+    fine_tuned: false
+    prompt_type: box
+    annotations: data/coco/annotations/instances_test.json
+    image_size: 1024
+    mask_size: 256
+    batch_size: 2
+    output_dir: outputs/experiments/E1_base_box
+
+  - id: E2
+    description: SAM ViT-B fine-tuned con prompt de caja
+    model_name: facebook/sam-vit-base
+    checkpoint: outputs/checkpoints/sam-electric/best
+    fine_tuned: true
+    prompt_type: box
+    annotations: data/coco/annotations/instances_test.json
+    image_size: 1024
+    mask_size: 256
+    batch_size: 2
+    output_dir: outputs/experiments/E2_finetuned_box
+
+  - id: E3
+    description: SAM ViT-B fine-tuned con prompt de punto positivo
+    model_name: facebook/sam-vit-base
+    checkpoint: outputs/checkpoints/sam-electric/best
+    fine_tuned: true
+    prompt_type: point
+    annotations: data/coco/annotations/instances_test.json
+    image_size: 1024
+    mask_size: 256
+    batch_size: 2
+    output_dir: outputs/experiments/E3_finetuned_point
+
+  - id: E4
+    description: Robustez del mejor modelo con imágenes degradadas
+    model_name: facebook/sam-vit-base
+    checkpoint: outputs/checkpoints/sam-electric/best
+    fine_tuned: true
+    prompt_type: box
+    annotations: data/coco/annotations/instances_test.json
+    image_size: 1024
+    mask_size: 256
+    batch_size: 2
+    output_dir: outputs/experiments/E4_robustness
+    corruptions:
+      - name: blur
+        severity: 3
+      - name: gaussian_noise
+        severity: 3
+      - name: jpeg_compression
+        severity: 3
+
+  - id: E5
+    description: Baseline externo, por ejemplo Custom Vision, YOLO o detector actual
+    type: baseline_coco_predictions
+    annotations: data/coco/annotations/instances_test.json
+    predictions: outputs/baseline/predictions_coco.json
+    output_dir: outputs/experiments/E5_baseline

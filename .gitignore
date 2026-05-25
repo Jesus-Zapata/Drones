@@ -3,7 +3,6 @@ __pycache__/
 .env
 .venv/
 venv/
-outputs/
 *.pth
 *.pt
 *.ckpt
@@ -13,3 +12,35 @@ data/raw/images/*
 data/coco/images/*
 data/coco/annotations/*.json
 !data/coco/annotations/.gitkeep
+outputs/checkpoints/*
+outputs/coco_preview/*
+outputs/evaluation_visualizations/*
+
+# Resultados y artefactos generados
+outputs/experiments/E1_base_box/*
+outputs/experiments/E2_finetuned_box/*
+outputs/experiments/E3_finetuned_point/*
+outputs/experiments/E4_robustness/*
+checkpoints/
+runs/
+wandb/
+mlruns/
+
+# Modelos pesados
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.bin
+
+# Datasets
+data/raw/
+data/processed/
+*.zip
+*.tar
+*.tar.gz
+
+# Temporales
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
