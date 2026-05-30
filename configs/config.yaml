@@ -29,7 +29,7 @@ model:
   processor:
     # SAM normalmente trabaja con 1024 como lado mayor. Bajar este valor reduce memoria,
     # pero puede afectar objetos pequeños. Subirlo depende de la capacidad de GPU.
-    image_size: 1024
+    image_size: 1280
     # Resolución interna de máscaras usada para pérdida y evaluación intermedia.
     mask_size: 256
 

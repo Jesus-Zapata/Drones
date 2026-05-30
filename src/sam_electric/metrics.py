@@ -74,6 +74,10 @@ def metrics_from_confusion(conf: Dict[str, int], eps: float = 1e-7) -> Dict[str,
         "precision": float(precision),
         "recall": float(recall),
         "f1": float(f1),
+        "pixel_label_accuracy": float(pixel_accuracy),
+        "correctly_labeled_pixels": float(tp + tn),
+        "total_pixels": float(total),
+        "wrong_labeled_pixels": float(fp + fn),
     }
 
 
@@ -84,6 +88,36 @@ def binary_iou(pred: np.ndarray, target: np.ndarray, eps: float = 1e-7) -> float
 def binary_dice(pred: np.ndarray, target: np.ndarray, eps: float = 1e-7) -> float:
     return metrics_from_confusion(binary_confusion(pred, target), eps=eps)["dice"]
 
+def binary_pixel_label_metrics(pred: np.ndarray, target: np.ndarray, eps: float = 1e-7) -> Dict[str, float]:
+    """
+    Calcula cuántos píxeles de la imagen fueron correctamente etiquetados
+    por la máscara predicha frente al ground truth.
+
+    Considera:
+    - píxeles de objeto correctamente marcados como objeto
+    - píxeles de fondo correctamente marcados como fondo
+    """
+
+    pred = pred.astype(bool)
+    target = target.astype(bool)
+
+    if pred.shape != target.shape:
+        raise ValueError(
+            f"pred y target deben tener la misma forma. "
+            f"pred={pred.shape}, target={target.shape}"
+        )
+
+    total_pixels = target.size
+    correctly_labeled_pixels = np.equal(pred, target).sum()
+
+    pixel_label_accuracy = (correctly_labeled_pixels + eps) / (total_pixels + eps)
+
+    return {
+        "pixel_label_accuracy": float(pixel_label_accuracy),
+        "correctly_labeled_pixels": float(correctly_labeled_pixels),
+        "total_pixels": float(total_pixels),
+    }
+
 
 class SegmentationMetricAccumulator:
     def __init__(self) -> None:
@@ -92,21 +126,24 @@ class SegmentationMetricAccumulator:
     def update(
         self,
         category_name: str,
-        file_name: str,
-        metrics: Dict[str, float],
-        inference_time_ms: float | None = None,
-        gpu_memory_mb: float | None = None,
+        iou: float,
+        dice: float,
+        pixel_label_accuracy: float,
+        correctly_labeled_pixels: float,
+        total_pixels: float,
+        file_name: str = "",
     ) -> None:
-        row = {
-            "category_name": category_name,
-            "file_name": file_name,
-            **{k: float(v) for k, v in metrics.items()},
-        }
-        if inference_time_ms is not None:
-            row["inference_time_ms"] = float(inference_time_ms)
-        if gpu_memory_mb is not None:
-            row["gpu_memory_mb"] = float(gpu_memory_mb)
-        self.rows.append(row)
+        self.rows.append(
+            {
+                "category_name": category_name,
+                "file_name": file_name,
+                "iou": float(iou),
+                "dice": float(dice),
+                "pixel_label_accuracy": float(pixel_label_accuracy),
+                "correctly_labeled_pixels": float(correctly_labeled_pixels),
+                "total_pixels": float(total_pixels),
+            }
+        )
 
     def _aggregate_rows(self, rows: list[dict]) -> Dict[str, float | int]:
         metric_keys = [
@@ -135,7 +172,18 @@ class SegmentationMetricAccumulator:
         if not self.rows:
             return {"overall": {}, "by_category": {}, "rows": []}
 
-        overall = self._aggregate_rows(self.rows)
+        total_correct_pixels = float(sum(r["correctly_labeled_pixels"] for r in self.rows))
+        total_pixels = float(sum(r["total_pixels"] for r in self.rows))
+
+        overall = {
+            "mean_iou": float(np.mean([r["iou"] for r in self.rows])),
+            "mean_dice": float(np.mean([r["dice"] for r in self.rows])),
+            "mean_pixel_label_accuracy": float(np.mean([r["pixel_label_accuracy"] for r in self.rows])),
+            "global_pixel_label_accuracy": float(total_correct_pixels / total_pixels) if total_pixels > 0 else 0.0,
+            "correctly_labeled_pixels": total_correct_pixels,
+            "total_pixels": total_pixels,
+            "instances": len(self.rows),
+        }
 
         grouped = defaultdict(list)
         for row in self.rows:
