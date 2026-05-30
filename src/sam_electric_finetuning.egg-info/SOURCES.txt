@@ -4,6 +4,7 @@ src/sam_electric/__init__.py
 src/sam_electric/coco.py
 src/sam_electric/corruptions.py
 src/sam_electric/dataset.py
+src/sam_electric/hardware.py
 src/sam_electric/metrics.py
 src/sam_electric/processor.py
 src/sam_electric/utils.py
